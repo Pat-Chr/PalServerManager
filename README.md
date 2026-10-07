@@ -1,6 +1,7 @@
 # PalServerManager
 
 PalServerManager is a small .NET 10 console application for managing a Palworld dedicated server. It can start, stop, and report the status of a configured server executable. It also runs a password-protected Telnet service so you can issue those commands remotely.
+This program will also accept other exe files that are not palworld related. but i don't guarantee that it will always work out of the box.
 
 > **Security notice:** Telnet does not encrypt traffic. The password and commands are sent in plain text. Use this only on a trusted network, or protect access with a VPN/firewall. Do not expose the Telnet port directly to the public internet. Change the example password before running the program.
 
