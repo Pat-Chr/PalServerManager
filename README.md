@@ -13,6 +13,7 @@ PalServerManager is a small .NET 10 console application for managing a Palworld 
 - route the port on your router to the computer that is running the server.
 - Start the PalServerManager.exe
 - You need a Telnet client to connect remotely; on Windows, the built-in Telnet Client may need to be enabled first. also you can use the commonly used Putty client.
+- example for logging into the servermanager with windows cmd: telnet ServerIP:23  then type your password and hit enter.
 
 ## Configuration
 
