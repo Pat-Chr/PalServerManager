@@ -12,11 +12,7 @@ PalServerManager is a small .NET 10 console application for managing a Palworld 
 - Edit the config file to add a strong password and I recommend also changing the listening port.
 - route the port on your router to the computer that is running the server.
 - Start the PalServerManager.exe
-
-- Windows (the configured server is launched as a Windows `.exe`)
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) to build or run from source
-- A Palworld dedicated server executable installed on the same machine
-- A Telnet client to connect remotely; on Windows, the built-in Telnet Client may need to be enabled first
+- You need a Telnet client to connect remotely; on Windows, the built-in Telnet Client may need to be enabled first. also you can use the commonly used Putty client.
 
 ## Configuration
 
