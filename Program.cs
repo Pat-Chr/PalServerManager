@@ -35,9 +35,16 @@ class Program
         string configJson = File.ReadAllText(configPath);
         var config = JsonSerializer.Deserialize<ServerConfig>(configJson);
 
-        if (string.IsNullOrEmpty(config.ServerSettings.AdminPassword))
+        if (config is null || config.ServerSettings is null)
         {
-            Console.WriteLine("Error: Admin password not defined in config!");
+            Console.WriteLine("Error: Invalid config or ServerSettings is missing!");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
+        {
+            Console.WriteLine("Error: ServerExePath not defined in config!");
+            Console.WriteLine("Please set 'ServerExePath' in appsettings.json.");
             return;
         }
 
@@ -604,7 +611,8 @@ class Program
                             statusText = $"[OK] Server is running!\r\n" +
                                        $"    Path: {exePath}\r\n" +
                                        $"    Error in details: {ex.Message}\r\n";
-                        }
+                        }    
+
                     }
                     else
                     {
