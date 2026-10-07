@@ -7,7 +7,7 @@ PalServerManager is a small .NET 10 console application for managing a Palworld 
 ## Requirements
 
 ## Installation
-- Clone the repository from GitHub or download the ZIP file.
+- download the ZIP file.
 - Copy the contents to the same directory where palserver.exe is located.
 - Edit the config file to add a strong password and I recommend also changing the listening port.
 - route the port on your router to the computer that is running the server.
