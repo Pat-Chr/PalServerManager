@@ -60,7 +60,7 @@ class Program
         // 5. Check server management commands (startserver, stopserver, status)
         if (args.Length > 0)
         {
-            await ProcessAdminCommand(args[0], config);
+            ProcessAdminCommand(args[0]);
             return;
         }
 
@@ -69,7 +69,7 @@ class Program
         Console.WriteLine();
 
         // 3. Create TCP listener
-        TcpListener listener = new TcpListener(System.Net.IPAddress.Any, port);
+        TcpListener listener = new(System.Net.IPAddress.Any, port);
         listener.Start();
 
         Console.WriteLine($"[{GetTimestamp()}] Server listening on: http://localhost:{port}");
@@ -98,9 +98,11 @@ class Program
     /// <summary>
     /// Processes admin commands (startserver, stopserver, status).
     /// </summary>
-    static async Task ProcessAdminCommand(string command, ServerConfig config)
+    private static void ProcessAdminCommand(string command)
     {
-        switch (command.ToLower())
+        ArgumentNullException.ThrowIfNull(command);
+
+        switch (command.ToLower(System.Globalization.CultureInfo.CurrentCulture))
         {
             case "startserver":
                 StartServer();
@@ -140,7 +142,7 @@ class Program
         string configJson = File.ReadAllText(configPath);
         var config = JsonSerializer.Deserialize<ServerConfig>(configJson);
 
-        if (string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
+        if (config?.ServerSettings == null || string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
         {
             Console.WriteLine($"[{GetTimestamp()}] Error: ServerExePath not defined in config!");
             Console.WriteLine("Please set 'ServerExePath' in appsettings.json.");
@@ -209,7 +211,7 @@ class Program
         string configJson = File.ReadAllText(configPath);
         var config = JsonSerializer.Deserialize<ServerConfig>(configJson);
 
-        if (string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
+        if (config?.ServerSettings == null || string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
         {
             Console.WriteLine($"[{GetTimestamp()}] No server configured. Set ServerExePath in appsettings.json.");
             return;
@@ -264,7 +266,7 @@ class Program
         string configJson = File.ReadAllText(configPath);
         var config = JsonSerializer.Deserialize<ServerConfig>(configJson);
 
-        if (string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
+        if (config?.ServerSettings == null || string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
         {
             Console.WriteLine($"[{GetTimestamp()}] No server configured. Set ServerExePath in appsettings.json.");
             return;
@@ -309,7 +311,7 @@ class Program
     static Process[] GetServerProcesses(string exePath)
     {
         if (string.IsNullOrEmpty(exePath))
-            return Array.Empty<Process>();
+            return [];
 
         try
         {
@@ -347,7 +349,7 @@ class Program
         catch (Exception ex)
         {
             Console.WriteLine($"    Error checking server status: {ex.Message}");
-            return Array.Empty<Process>();
+            return [];
         }
     }
 
