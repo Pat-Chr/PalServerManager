@@ -88,3 +88,11 @@ When started without a command argument, PalServerManager runs the Telnet servic
 - The service binds to all network interfaces, so restrict inbound access to the configured port with your firewall.
 - `stopserver` forcibly terminates the server process; it does not request a graceful shutdown.
 - The status and duplicate-process checks use the executable's filename, so they may also match another running process with the same name.
+
+## Version info
+1.1
+- Better information in client window.
+- Code improvements
+
+1.0
+- First Release. Basic functions.
