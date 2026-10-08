@@ -1,0 +1,10 @@
+﻿[*.cs]
+
+# IDE0022: Blocktextkörper für Methode verwenden
+dotnet_diagnostic.IDE0022.severity = none
+
+# IDE0032: Automatisch generierte Eigenschaft verwenden
+dotnet_diagnostic.IDE0032.severity = none
+
+# Default severity for all analyzer diagnostics
+dotnet_analyzer_diagnostic.severity = none

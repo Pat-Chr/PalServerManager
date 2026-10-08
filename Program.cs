@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Text.Json;
+using System.Collections.Generic;
 
 /// <summary>
 /// PalServerManager - Telnet Server with Password Protection and Server Management
@@ -38,10 +39,19 @@ class Program
         }
 
         // 2. Read JSON configuration
-        string configJson = File.ReadAllText(configPath);
-        var config = JsonSerializer.Deserialize<ServerConfig>(configJson);
+        ServerConfig? config;
+        try
+        {
+            string configJson = File.ReadAllText(configPath);
+            config = JsonSerializer.Deserialize<ServerConfig>(configJson);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[{GetTimestamp()}] Error reading config: {ex.Message}");
+            return;
+        }
 
-        if (config is null || config.ServerSettings is null)
+        if (config?.ServerSettings is null)
         {
             Console.WriteLine($"[{GetTimestamp()}] Error: Invalid config or ServerSettings is missing!");
             return;
@@ -57,10 +67,10 @@ class Program
         string adminPassword = config.ServerSettings.AdminPassword;
         int port = config.ServerSettings.Port;
 
-        // 5. Check server management commands (startserver, stopserver, status)
+        // 3. Check server management commands (startserver, stopserver, status)
         if (args.Length > 0)
         {
-            ProcessAdminCommand(args[0]);
+            ProcessAdminCommand(args[0], config);
             return;
         }
 
@@ -68,14 +78,14 @@ class Program
         Console.WriteLine("Note: Only clients with the correct password can log in.");
         Console.WriteLine();
 
-        // 3. Create TCP listener
-        TcpListener listener = new(System.Net.IPAddress.Any, port);
+        // 4. Create TCP listener
+        TcpListener listener = new(IPAddress.Any, port);
         listener.Start();
 
-        Console.WriteLine($"[{GetTimestamp()}] Server listening on: http://localhost:{port}");
+        Console.WriteLine($"[{GetTimestamp()}] Server listening on: localhost:{port}");
         Console.WriteLine();
 
-        // 4. Main loop - wait for connections
+        // 5. Main loop - wait for connections
         while (true)
         {
             try
@@ -86,7 +96,7 @@ class Program
                 Console.WriteLine();
 
                 // Start processing task
-                _ = Task.Run(async () => await HandleConnection(client, adminPassword));
+                _ = Task.Run(async () => await HandleConnection(client, adminPassword, config));
             }
             catch (Exception ex)
             {
@@ -98,22 +108,22 @@ class Program
     /// <summary>
     /// Processes admin commands (startserver, stopserver, status).
     /// </summary>
-    private static void ProcessAdminCommand(string command)
+    private static void ProcessAdminCommand(string command, ServerConfig config)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        switch (command.ToLower(System.Globalization.CultureInfo.CurrentCulture))
+        switch (command.ToLowerInvariant())
         {
             case "startserver":
-                StartServer();
+                StartServer(config);
                 break;
 
             case "stopserver":
-                StopServer();
+                StopServer(config);
                 break;
 
             case "status":
-                ShowStatus();
+                ShowStatus(config);
                 break;
 
             default:
@@ -126,28 +136,10 @@ class Program
     /// <summary>
     /// Starts an external .exe from the config.
     /// </summary>
-    static void StartServer()
+    static void StartServer(ServerConfig config)
     {
         Console.WriteLine($"[{GetTimestamp()}] === PalServerManager - Starting Server ===");
         Console.WriteLine();
-
-        string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
-
-        if (!File.Exists(configPath))
-        {
-            Console.WriteLine($"[{GetTimestamp()}] Error: Config file not found: {configPath}");
-            return;
-        }
-
-        string configJson = File.ReadAllText(configPath);
-        var config = JsonSerializer.Deserialize<ServerConfig>(configJson);
-
-        if (config?.ServerSettings == null || string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
-        {
-            Console.WriteLine($"[{GetTimestamp()}] Error: ServerExePath not defined in config!");
-            Console.WriteLine("Please set 'ServerExePath' in appsettings.json.");
-            return;
-        }
 
         string exePath = Path.GetFullPath(config.ServerSettings.ServerExePath);
 
@@ -195,27 +187,10 @@ class Program
     /// <summary>
     /// Stops an external .exe.
     /// </summary>
-    static void StopServer()
+    static void StopServer(ServerConfig config)
     {
         Console.WriteLine($"[{GetTimestamp()}] === PalServerManager - Stopping Server ===");
         Console.WriteLine();
-
-        string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
-
-        if (!File.Exists(configPath))
-        {
-            Console.WriteLine($"[{GetTimestamp()}] Error: Config file not found: {configPath}");
-            return;
-        }
-
-        string configJson = File.ReadAllText(configPath);
-        var config = JsonSerializer.Deserialize<ServerConfig>(configJson);
-
-        if (config?.ServerSettings == null || string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
-        {
-            Console.WriteLine($"[{GetTimestamp()}] No server configured. Set ServerExePath in appsettings.json.");
-            return;
-        }
 
         string exePath = Path.GetFullPath(config.ServerSettings.ServerExePath);
         Process[] processes = GetServerProcesses(exePath);
@@ -250,27 +225,10 @@ class Program
     /// <summary>
     /// Shows the status of the .exe (running or not).
     /// </summary>
-    static void ShowStatus()
+    static void ShowStatus(ServerConfig config)
     {
         Console.WriteLine($"[{GetTimestamp()}] === PalServerManager - Server Status ===");
         Console.WriteLine();
-
-        string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
-
-        if (!File.Exists(configPath))
-        {
-            Console.WriteLine($"[{GetTimestamp()}] Error: Config file not found: {configPath}");
-            return;
-        }
-
-        string configJson = File.ReadAllText(configPath);
-        var config = JsonSerializer.Deserialize<ServerConfig>(configJson);
-
-        if (config?.ServerSettings == null || string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
-        {
-            Console.WriteLine($"[{GetTimestamp()}] No server configured. Set ServerExePath in appsettings.json.");
-            return;
-        }
 
         string exePath = config.ServerSettings.ServerExePath;
 
@@ -306,73 +264,87 @@ class Program
     }
 
     /// <summary>
-    /// Checks if a .exe is currently running.
+    /// Checks if an .exe is currently running.
     /// </summary>
     static Process[] GetServerProcesses(string exePath)
     {
-        if (string.IsNullOrEmpty(exePath))
-            return [];
+        if (string.IsNullOrWhiteSpace(exePath))
+        {
+            return Array.Empty<Process>();
+        }
 
         try
         {
             string fullExePath = Path.GetFullPath(exePath);
-            Process[] candidates = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(fullExePath));
-            var matchingProcesses = new System.Collections.Generic.List<Process>();
+            Process[] candidates = Process.GetProcessesByName(
+                Path.GetFileNameWithoutExtension(fullExePath));
+            var matchingProcesses = new List<Process>();
 
             foreach (Process process in candidates)
             {
+                bool keepProcess = false;
+
                 try
                 {
                     string? processPath = process.MainModule?.FileName;
                     if (!string.IsNullOrEmpty(processPath) &&
-                        string.Equals(Path.GetFullPath(processPath), fullExePath, StringComparison.OrdinalIgnoreCase))
+                        string.Equals(
+                            Path.GetFullPath(processPath),
+                            fullExePath,
+                            StringComparison.OrdinalIgnoreCase))
                     {
                         matchingProcesses.Add(process);
+                        keepProcess = true;
                     }
-                    else
+                }
+                catch (Exception ex) when (
+                    ex is ArgumentException or
+                    InvalidOperationException or
+                    NotSupportedException or
+                    System.ComponentModel.Win32Exception or
+                    System.Security.SecurityException)
+                {
+                    // The process may have exited or access may be denied.
+                }
+                finally
+                {
+                    if (!keepProcess)
                     {
                         process.Dispose();
                     }
-                }
-                catch (System.ComponentModel.Win32Exception)
-                {
-                    process.Dispose();
-                }
-                catch (InvalidOperationException)
-                {
-                    process.Dispose();
                 }
             }
 
             return matchingProcesses.ToArray();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (
+            ex is ArgumentException or
+            InvalidOperationException or
+            NotSupportedException or
+            IOException or
+            System.ComponentModel.Win32Exception or
+            System.Security.SecurityException)
         {
             Console.WriteLine($"    Error checking server status: {ex.Message}");
-            return [];
+            return Array.Empty<Process>();
         }
     }
 
     /// <summary>
     /// Handles a client connection and authenticates the user.
     /// </summary>
-    /// <param name="client">The TCP client</param>
-    /// <param name="adminPassword">The allowed admin password</param>
-    static async Task HandleConnection(TcpClient client, string adminPassword)
+    static async Task HandleConnection(TcpClient client, string adminPassword, ServerConfig config)
     {
         using (client)
         using (NetworkStream stream = client.GetStream())
         {
-            // Configure stream
             stream.ReadTimeout = 10000;
             stream.WriteTimeout = 10000;
 
-            // --- IMPROVED: Line-based authentication with timeout ---
             Console.WriteLine($"[{GetTimestamp()}] Authentication mode enabled.");
             Console.WriteLine($"[{GetTimestamp()}] Waiting for password input...");
             Console.WriteLine();
 
-            // Send welcome message (with authentication notice)
             string authMessage = "PalServerManager Telnet Server v1.0\r\n" +
                                 "=========================================\r\n" +
                                 "SECURE ACCESS ENABLED\r\n" +
@@ -383,11 +355,6 @@ class Program
             await stream.WriteAsync(authBytes, 0, authBytes.Length);
             await stream.FlushAsync();
 
-            Console.WriteLine($"[{GetTimestamp()}] Welcome message sent.");
-
-            // IMPROVED: Wait for complete password entry (line-based)
-            Console.WriteLine($"[{GetTimestamp()}] Waiting for your password input...");
-
             bool isAuthenticated = false;
             int failedAttempts = 0;
 
@@ -395,10 +362,9 @@ class Program
             {
                 try
                 {
-                    string line = await ReadLineAsync(stream);
+                    string? line = await ReadLineAsync(stream);
                     if (line == null)
                     {
-                        // Client has disconnected
                         Console.WriteLine($"[{GetTimestamp()}] Client disconnected during authentication.");
                         break;
                     }
@@ -408,14 +374,11 @@ class Program
                     {
                         Console.WriteLine($"[{GetTimestamp()}] Line received: '{line}'");
 
-                        // Password check for complete lines only
                         if (line.Equals(adminPassword, StringComparison.OrdinalIgnoreCase))
                         {
-                            // PASSWORD CORRECT!
                             Console.WriteLine($"[{GetTimestamp()}] Authentication successful!");
                             isAuthenticated = true;
 
-                            // Send success message
                             string successMessage = "=========================================\r\n" +
                                                    "ACCESS GRANTED\r\n" +
                                                    "Welcome to PalServerManager!\r\n" +
@@ -425,18 +388,13 @@ class Program
                             await stream.WriteAsync(successBytes, 0, successBytes.Length);
                             await stream.FlushAsync();
 
-                            Console.WriteLine($"[{GetTimestamp()}] Success message sent.");
-
-                            // Now process normal commands
-                            await ProcessCommands(stream, client);
+                            await ProcessCommands(stream, client, config);
                         }
                         else
                         {
-                            // WRONG PASSWORD!
                             failedAttempts++;
                             Console.WriteLine($"[{GetTimestamp()}] Wrong password attempted. Attempts remaining: {3 - failedAttempts}");
 
-                            // Send error message (without showing the real password!)
                             string errorMessage = "=========================================\r\n" +
                                                "WRONG PASSWORD!\r\n" +
                                                "Access denied.\r\n" +
@@ -446,8 +404,6 @@ class Program
                             byte[] errorBytes = Encoding.UTF8.GetBytes(errorMessage);
                             await stream.WriteAsync(errorBytes, 0, errorBytes.Length);
                             await stream.FlushAsync();
-
-                            Console.WriteLine($"[{GetTimestamp()}] Error message sent.");
                         }
                     }
                 }
@@ -460,7 +416,6 @@ class Program
 
             if (!isAuthenticated)
             {
-                // Client was not authenticated - terminate connection
                 Console.WriteLine($"[{GetTimestamp()}] Connection without authentication terminated.");
             }
         }
@@ -469,16 +424,13 @@ class Program
     /// <summary>
     /// Processes commands after successful authentication.
     /// </summary>
-    static async Task ProcessCommands(NetworkStream stream, TcpClient client)
+    static async Task ProcessCommands(NetworkStream stream, TcpClient client, ServerConfig config)
     {
-        // Process the first command after authentication (do not ignore)
-        bool isFirstCommand = true;
-
         while (true)
         {
             try
             {
-                string commandText = await ReadLineAsync(stream);
+                string? commandText = await ReadLineAsync(stream);
                 if (commandText == null)
                 {
                     Console.WriteLine($"[{GetTimestamp()}] Client disconnected.");
@@ -486,21 +438,15 @@ class Program
                 }
 
                 commandText = commandText.Trim();
-
                 if (string.IsNullOrEmpty(commandText))
                     continue;
 
-                // Process the first command after authentication
                 Console.WriteLine($"[{GetTimestamp()}] Command received: {commandText}");
-
-                // Trim and execute
-                commandText = commandText.Trim();
 
                 if (commandText == "exit" || commandText == "bye")
                 {
                     Console.WriteLine($"[{GetTimestamp()}] Closing connection to {client.Client.RemoteEndPoint}...");
 
-                    // Send disconnect message before closing
                     string disconnectMessage = "=========================================\r\n" +
                                               "CONNECTION IS BEING CLOSED\r\n" +
                                               "Thank you for visiting!\r\n" +
@@ -511,24 +457,14 @@ class Program
                     {
                         await stream.WriteAsync(disconnectBytes, 0, disconnectBytes.Length);
                         await stream.FlushAsync();
-                        Console.WriteLine($"[{GetTimestamp()}] Disconnect message sent.");
                     }
-                    catch (IOException)
-                    {
-                        // Client has already disconnected - that's okay
-                        Console.WriteLine($"[{GetTimestamp()}] Client has already disconnected.");
-                    }
+                    catch (IOException) { /* Client disconnected */ }
 
-                    // Cleanly close socket (both directions)
                     try
                     {
                         client.Client.Shutdown(SocketShutdown.Both);
-                        Console.WriteLine($"[{GetTimestamp()}] Socket closed.");
                     }
-                    catch (IOException)
-                    {
-                        // Socket is already closed - that's okay
-                    }
+                    catch (IOException) { /* Socket closed */ }
 
                     break;
                 }
@@ -547,55 +483,23 @@ class Program
                 }
                 else if (commandText == "startserver")
                 {
-                    Console.WriteLine($"[{GetTimestamp()}] Command 'startserver' recognized.");
-
                     byte[] responseBytes = Encoding.UTF8.GetBytes("Command: startserver\r\nServer is starting...\r\n");
                     await stream.WriteAsync(responseBytes, 0, responseBytes.Length);
                     await stream.FlushAsync();
 
-                    StartServer();
+                    StartServer(config);
                 }
                 else if (commandText == "stopserver")
                 {
-                    Console.WriteLine($"[{GetTimestamp()}] Command 'stopserver' recognized.");
-
                     byte[] responseBytes = Encoding.UTF8.GetBytes("Command: stopserver\r\nServer is stopping...\r\n");
                     await stream.WriteAsync(responseBytes, 0, responseBytes.Length);
                     await stream.FlushAsync();
 
-                    StopServer();
+                    StopServer(config);
                 }
                 else if (commandText == "status")
                 {
-                    Console.WriteLine($"[{GetTimestamp()}] Command 'status' recognized.");
-
-                    // Generate status information
-                    string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
-
-                    if (!File.Exists(configPath))
-                    {
-                        string errorMsg = "[X] Config file not found!\r\n";
-                        byte[] errorBytes = Encoding.UTF8.GetBytes(errorMsg);
-                        await stream.WriteAsync(errorBytes, 0, errorBytes.Length);
-                        await stream.FlushAsync();
-                        return;
-                    }
-
-                    var config = JsonSerializer.Deserialize<ServerConfig>(File.ReadAllText(configPath));
-
-                    if (string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
-                    {
-                        string errorMsg = "[X] No server configured!\r\n";
-                        byte[] errorBytes = Encoding.UTF8.GetBytes(errorMsg);
-                        await stream.WriteAsync(errorBytes, 0, errorBytes.Length);
-                        await stream.FlushAsync();
-                        Console.WriteLine("No server configured. Set ServerExePath in appsettings.json.");
-                        return;
-                    }
-
                     string exePath = config.ServerSettings.ServerExePath;
-
-                    // Generate status text
                     bool isRunning = IsServerRunning(exePath);
                     string statusText = "";
 
@@ -619,8 +523,7 @@ class Program
                             statusText = $"[OK] Server is running!\r\n" +
                                        $"    Path: {exePath}\r\n" +
                                        $"    Error in details: {ex.Message}\r\n";
-                        }    
-
+                        }
                     }
                     else
                     {
@@ -628,19 +531,14 @@ class Program
                                     $"    Path: {exePath}\r\n";
                     }
 
-                    // Send status to client
                     byte[] statusBytes = Encoding.UTF8.GetBytes(statusText);
                     await stream.WriteAsync(statusBytes, 0, statusBytes.Length);
                     await stream.FlushAsync();
-
-                    // Also display in console
                     Console.WriteLine(statusText);
                 }
                 else
                 {
-                    // Ignore all other commands (expandable later)
                     Console.WriteLine($"[{GetTimestamp()}] Unknown command: {commandText}");
-
                     byte[] unknownMessage = Encoding.UTF8.GetBytes("Unknown command. Enter 'help' to see available commands.\r\n");
                     await stream.WriteAsync(unknownMessage, 0, unknownMessage.Length);
                     await stream.FlushAsync();
@@ -701,41 +599,25 @@ class Program
                     break;
 
                 case 5:
-                    telnetState = value == 240 ? 0 : value == 255 ? 4 : 4;
+                    telnetState = value == 240 ? 0 : 4;
                     break;
             }
         }
     }
 }
 
-/// <summary>
-/// Configuration model for the server.
-/// </summary>
 public class ServerConfig
 {
     public ServerSettings ServerSettings { get; set; } = new ServerSettings();
 }
 
-/// <summary>
-/// Server settings from the config file.
-/// </summary>
+[DebuggerDisplay($"{{{nameof(GetDebuggerDisplay)}(),nq}}")]
 public class ServerSettings
 {
-    /// <summary>
-    /// The port on which the server listens (default: 23 for Telnet).
-    /// </summary>
+    private string serverExePath = "";
+
     public int Port { get; set; } = 23;
-
-    /// <summary>
-    /// The password with which admins can log in.
-    /// IMPORTANT: Do NOT store this in plain text in a file!
-    /// In production, you should use hashing (e.g., bcrypt).
-    /// </summary>
     public string AdminPassword { get; set; } = "";
-
-    /// <summary>
-    /// Path to the external .exe that should be started/stopped.
-    /// Leave empty if no external .exe should be managed.
-    /// </summary>
-    public string ServerExePath { get; set; } = "";
+    public string ServerExePath { get => serverExePath; set => serverExePath = value; }
+    private string GetDebuggerDisplay() => ToString() ?? string.Empty;
 }
