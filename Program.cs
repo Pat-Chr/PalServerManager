@@ -1,4 +1,5 @@
-﻿using System;
+﻿// file: Program.cs
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -16,9 +17,14 @@ using System.Text.Json;
 /// </summary>
 class Program
 {
+    /// <summary>
+    /// Gets the current timestamp for logging purposes.
+    /// </summary>
+    private static string GetTimestamp() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
     static async Task Main(string[] args)
     {
-        Console.WriteLine("=== PalServerManager Telnet Server ===");
+        Console.WriteLine($"[{GetTimestamp()}] === PalServerManager Telnet Server ===");
         Console.WriteLine();
 
         // 1. Load configuration file
@@ -26,7 +32,7 @@ class Program
 
         if (!File.Exists(configPath))
         {
-            Console.WriteLine($"Error: Config file not found: {configPath}");
+            Console.WriteLine($"[{GetTimestamp()}] Error: Config file not found: {configPath}");
             Console.WriteLine("Please create an appsettings.json file with the admin password.");
             return;
         }
@@ -37,13 +43,13 @@ class Program
 
         if (config is null || config.ServerSettings is null)
         {
-            Console.WriteLine("Error: Invalid config or ServerSettings is missing!");
+            Console.WriteLine($"[{GetTimestamp()}] Error: Invalid config or ServerSettings is missing!");
             return;
         }
 
         if (string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
         {
-            Console.WriteLine("Error: ServerExePath not defined in config!");
+            Console.WriteLine($"[{GetTimestamp()}] Error: ServerExePath not defined in config!");
             Console.WriteLine("Please set 'ServerExePath' in appsettings.json.");
             return;
         }
@@ -58,7 +64,7 @@ class Program
             return;
         }
 
-        Console.WriteLine($"Server starting on port {port}...");
+        Console.WriteLine($"[{GetTimestamp()}] Server starting on port {port}...");
         Console.WriteLine("Note: Only clients with the correct password can log in.");
         Console.WriteLine();
 
@@ -66,7 +72,7 @@ class Program
         TcpListener listener = new TcpListener(System.Net.IPAddress.Any, port);
         listener.Start();
 
-        Console.WriteLine($"Server listening on: http://localhost:{port}");
+        Console.WriteLine($"[{GetTimestamp()}] Server listening on: http://localhost:{port}");
         Console.WriteLine();
 
         // 4. Main loop - wait for connections
@@ -76,7 +82,7 @@ class Program
             {
                 TcpClient client = await listener.AcceptTcpClientAsync();
 
-                Console.WriteLine($"New connection from {client.Client.RemoteEndPoint}");
+                Console.WriteLine($"[{GetTimestamp()}] New connection from {client.Client.RemoteEndPoint}");
                 Console.WriteLine();
 
                 // Start processing task
@@ -84,7 +90,7 @@ class Program
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                Console.WriteLine($"[{GetTimestamp()}] Error: {ex.Message}");
             }
         }
     }
@@ -109,7 +115,7 @@ class Program
                 break;
 
             default:
-                Console.WriteLine($"Unknown command: {command}");
+                Console.WriteLine($"[{GetTimestamp()}] Unknown command: {command}");
                 Console.WriteLine("Available commands: startserver, stopserver, status");
                 break;
         }
@@ -120,14 +126,14 @@ class Program
     /// </summary>
     static void StartServer()
     {
-        Console.WriteLine("=== PalServerManager - Starting Server ===");
+        Console.WriteLine($"[{GetTimestamp()}] === PalServerManager - Starting Server ===");
         Console.WriteLine();
 
         string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
 
         if (!File.Exists(configPath))
         {
-            Console.WriteLine($"Error: Config file not found: {configPath}");
+            Console.WriteLine($"[{GetTimestamp()}] Error: Config file not found: {configPath}");
             return;
         }
 
@@ -136,7 +142,7 @@ class Program
 
         if (string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
         {
-            Console.WriteLine("Error: ServerExePath not defined in config!");
+            Console.WriteLine($"[{GetTimestamp()}] Error: ServerExePath not defined in config!");
             Console.WriteLine("Please set 'ServerExePath' in appsettings.json.");
             return;
         }
@@ -146,7 +152,7 @@ class Program
         // Check if the .exe is already running
         if (IsServerRunning(exePath))
         {
-            Console.WriteLine($"Server is already started: {exePath}");
+            Console.WriteLine($"[{GetTimestamp()}] Server is already started: {exePath}");
             return;
         }
 
@@ -162,12 +168,12 @@ class Program
                 RedirectStandardError = true
             });
 
-            Console.WriteLine($"Server started: {exePath}");
+            Console.WriteLine($"[{GetTimestamp()}] Server started: {exePath}");
             Console.WriteLine();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error starting server: {ex.Message}");
+            Console.WriteLine($"[{GetTimestamp()}] Error starting server: {ex.Message}");
         }
     }
 
@@ -189,14 +195,14 @@ class Program
     /// </summary>
     static void StopServer()
     {
-        Console.WriteLine("=== PalServerManager - Stopping Server ===");
+        Console.WriteLine($"[{GetTimestamp()}] === PalServerManager - Stopping Server ===");
         Console.WriteLine();
 
         string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
 
         if (!File.Exists(configPath))
         {
-            Console.WriteLine($"Error: Config file not found: {configPath}");
+            Console.WriteLine($"[{GetTimestamp()}] Error: Config file not found: {configPath}");
             return;
         }
 
@@ -205,7 +211,7 @@ class Program
 
         if (string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
         {
-            Console.WriteLine("No server configured. Set ServerExePath in appsettings.json.");
+            Console.WriteLine($"[{GetTimestamp()}] No server configured. Set ServerExePath in appsettings.json.");
             return;
         }
 
@@ -214,7 +220,7 @@ class Program
 
         if (processes.Length == 0)
         {
-            Console.WriteLine("Server is not started.");
+            Console.WriteLine($"[{GetTimestamp()}] Server is not started.");
             return;
         }
 
@@ -230,12 +236,12 @@ class Program
                 }
             }
 
-            Console.WriteLine($"Server stopped: {exePath}");
+            Console.WriteLine($"[{GetTimestamp()}] Server stopped: {exePath}");
             Console.WriteLine();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error stopping server: {ex.Message}");
+            Console.WriteLine($"[{GetTimestamp()}] Error stopping server: {ex.Message}");
         }
     }
 
@@ -244,14 +250,14 @@ class Program
     /// </summary>
     static void ShowStatus()
     {
-        Console.WriteLine("=== PalServerManager - Server Status ===");
+        Console.WriteLine($"[{GetTimestamp()}] === PalServerManager - Server Status ===");
         Console.WriteLine();
 
         string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
 
         if (!File.Exists(configPath))
         {
-            Console.WriteLine($"Error: Config file not found: {configPath}");
+            Console.WriteLine($"[{GetTimestamp()}] Error: Config file not found: {configPath}");
             return;
         }
 
@@ -260,7 +266,7 @@ class Program
 
         if (string.IsNullOrEmpty(config.ServerSettings.ServerExePath))
         {
-            Console.WriteLine("No server configured. Set ServerExePath in appsettings.json.");
+            Console.WriteLine($"[{GetTimestamp()}] No server configured. Set ServerExePath in appsettings.json.");
             return;
         }
 
@@ -360,8 +366,8 @@ class Program
             stream.WriteTimeout = 10000;
 
             // --- IMPROVED: Line-based authentication with timeout ---
-            Console.WriteLine("Authentication mode enabled.");
-            Console.WriteLine("Waiting for password input...");
+            Console.WriteLine($"[{GetTimestamp()}] Authentication mode enabled.");
+            Console.WriteLine($"[{GetTimestamp()}] Waiting for password input...");
             Console.WriteLine();
 
             // Send welcome message (with authentication notice)
@@ -375,10 +381,10 @@ class Program
             await stream.WriteAsync(authBytes, 0, authBytes.Length);
             await stream.FlushAsync();
 
-            Console.WriteLine("Welcome message sent.");
+            Console.WriteLine($"[{GetTimestamp()}] Welcome message sent.");
 
             // IMPROVED: Wait for complete password entry (line-based)
-            Console.WriteLine("Waiting for your password input...");
+            Console.WriteLine($"[{GetTimestamp()}] Waiting for your password input...");
 
             bool isAuthenticated = false;
             int failedAttempts = 0;
@@ -391,20 +397,20 @@ class Program
                     if (line == null)
                     {
                         // Client has disconnected
-                        Console.WriteLine("Client disconnected during authentication.");
+                        Console.WriteLine($"[{GetTimestamp()}] Client disconnected during authentication.");
                         break;
                     }
 
                     line = line.Trim();
                     if (!string.IsNullOrEmpty(line))
                     {
-                        Console.WriteLine($"Line received: '{line}'");
+                        Console.WriteLine($"[{GetTimestamp()}] Line received: '{line}'");
 
                         // Password check for complete lines only
                         if (line.Equals(adminPassword, StringComparison.OrdinalIgnoreCase))
                         {
                             // PASSWORD CORRECT!
-                            Console.WriteLine("Authentication successful!");
+                            Console.WriteLine($"[{GetTimestamp()}] Authentication successful!");
                             isAuthenticated = true;
 
                             // Send success message
@@ -417,7 +423,7 @@ class Program
                             await stream.WriteAsync(successBytes, 0, successBytes.Length);
                             await stream.FlushAsync();
 
-                            Console.WriteLine("Success message sent.");
+                            Console.WriteLine($"[{GetTimestamp()}] Success message sent.");
 
                             // Now process normal commands
                             await ProcessCommands(stream, client);
@@ -426,7 +432,7 @@ class Program
                         {
                             // WRONG PASSWORD!
                             failedAttempts++;
-                            Console.WriteLine($"Wrong password attempted. Attempts remaining: {3 - failedAttempts}");
+                            Console.WriteLine($"[{GetTimestamp()}] Wrong password attempted. Attempts remaining: {3 - failedAttempts}");
 
                             // Send error message (without showing the real password!)
                             string errorMessage = "=========================================\r\n" +
@@ -439,13 +445,13 @@ class Program
                             await stream.WriteAsync(errorBytes, 0, errorBytes.Length);
                             await stream.FlushAsync();
 
-                            Console.WriteLine("Error message sent.");
+                            Console.WriteLine($"[{GetTimestamp()}] Error message sent.");
                         }
                     }
                 }
                 catch (IOException)
                 {
-                    Console.WriteLine("Client disconnected.");
+                    Console.WriteLine($"[{GetTimestamp()}] Client disconnected.");
                     break;
                 }
             }
@@ -453,7 +459,7 @@ class Program
             if (!isAuthenticated)
             {
                 // Client was not authenticated - terminate connection
-                Console.WriteLine("Connection without authentication terminated.");
+                Console.WriteLine($"[{GetTimestamp()}] Connection without authentication terminated.");
             }
         }
     }
@@ -473,7 +479,7 @@ class Program
                 string commandText = await ReadLineAsync(stream);
                 if (commandText == null)
                 {
-                    Console.WriteLine("Client disconnected.");
+                    Console.WriteLine($"[{GetTimestamp()}] Client disconnected.");
                     break;
                 }
 
@@ -483,14 +489,14 @@ class Program
                     continue;
 
                 // Process the first command after authentication
-                Console.WriteLine($"Command received: {commandText}");
+                Console.WriteLine($"[{GetTimestamp()}] Command received: {commandText}");
 
                 // Trim and execute
                 commandText = commandText.Trim();
 
                 if (commandText == "exit" || commandText == "bye")
                 {
-                    Console.WriteLine($"Closing connection to {client.Client.RemoteEndPoint}...");
+                    Console.WriteLine($"[{GetTimestamp()}] Closing connection to {client.Client.RemoteEndPoint}...");
 
                     // Send disconnect message before closing
                     string disconnectMessage = "=========================================\r\n" +
@@ -503,19 +509,19 @@ class Program
                     {
                         await stream.WriteAsync(disconnectBytes, 0, disconnectBytes.Length);
                         await stream.FlushAsync();
-                        Console.WriteLine("Disconnect message sent.");
+                        Console.WriteLine($"[{GetTimestamp()}] Disconnect message sent.");
                     }
                     catch (IOException)
                     {
                         // Client has already disconnected - that's okay
-                        Console.WriteLine("Client has already disconnected.");
+                        Console.WriteLine($"[{GetTimestamp()}] Client has already disconnected.");
                     }
 
                     // Cleanly close socket (both directions)
                     try
                     {
                         client.Client.Shutdown(SocketShutdown.Both);
-                        Console.WriteLine("Socket closed.");
+                        Console.WriteLine($"[{GetTimestamp()}] Socket closed.");
                     }
                     catch (IOException)
                     {
@@ -539,7 +545,7 @@ class Program
                 }
                 else if (commandText == "startserver")
                 {
-                    Console.WriteLine("Command 'startserver' recognized.");
+                    Console.WriteLine($"[{GetTimestamp()}] Command 'startserver' recognized.");
 
                     byte[] responseBytes = Encoding.UTF8.GetBytes("Command: startserver\r\nServer is starting...\r\n");
                     await stream.WriteAsync(responseBytes, 0, responseBytes.Length);
@@ -549,7 +555,7 @@ class Program
                 }
                 else if (commandText == "stopserver")
                 {
-                    Console.WriteLine("Command 'stopserver' recognized.");
+                    Console.WriteLine($"[{GetTimestamp()}] Command 'stopserver' recognized.");
 
                     byte[] responseBytes = Encoding.UTF8.GetBytes("Command: stopserver\r\nServer is stopping...\r\n");
                     await stream.WriteAsync(responseBytes, 0, responseBytes.Length);
@@ -559,7 +565,7 @@ class Program
                 }
                 else if (commandText == "status")
                 {
-                    Console.WriteLine("Command 'status' recognized.");
+                    Console.WriteLine($"[{GetTimestamp()}] Command 'status' recognized.");
 
                     // Generate status information
                     string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
@@ -631,7 +637,7 @@ class Program
                 else
                 {
                     // Ignore all other commands (expandable later)
-                    Console.WriteLine($"Unknown command: {commandText}");
+                    Console.WriteLine($"[{GetTimestamp()}] Unknown command: {commandText}");
 
                     byte[] unknownMessage = Encoding.UTF8.GetBytes("Unknown command. Enter 'help' to see available commands.\r\n");
                     await stream.WriteAsync(unknownMessage, 0, unknownMessage.Length);
@@ -640,7 +646,7 @@ class Program
             }
             catch (IOException)
             {
-                Console.WriteLine("Client disconnected.");
+                Console.WriteLine($"[{GetTimestamp()}] Client disconnected.");
                 break;
             }
         }
