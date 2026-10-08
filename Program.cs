@@ -105,6 +105,13 @@ class Program
         }
     }
 
+
+    /// <summary>
+    /// List of connected clients for broadcasting status messages.
+    /// </summary>
+    private static readonly List<(NetworkStream Stream, TcpClient Client)> ConnectedClients = new();
+
+
     /// <summary>
     /// Processes admin commands (startserver, stopserver, status).
     /// </summary>
@@ -116,14 +123,20 @@ class Program
         {
             case "startserver":
                 StartServer(config);
+                BroadcastToClients("Server has been started successfully!");
                 break;
 
             case "stopserver":
                 StopServer(config);
+                BroadcastToClients("Server has been stopped successfully!");
                 break;
 
             case "status":
                 ShowStatus(config);
+                string statusText = IsServerRunning(config.ServerSettings.ServerExePath) 
+                    ? "[OK] Server is running!" 
+                    : "[X] Server is NOT running!";
+                BroadcastToClients(statusText + "\r\n");
                 break;
 
             default:
@@ -133,6 +146,40 @@ class Program
         }
     }
 
+
+    /// <summary>
+    /// Broadcasts a message to all connected clients.
+    /// </summary>
+    private static void BroadcastToClients(string message)
+    {
+        if (string.IsNullOrEmpty(message))
+            return;
+
+        byte[] messageBytes = Encoding.UTF8.GetBytes(message + "\r\n");
+
+        foreach (var client in ConnectedClients.ToList())
+        {
+            try
+            {
+                client.Stream.WriteAsync(messageBytes, 0, messageBytes.Length);
+                client.Stream.FlushAsync();
+            }
+            catch (IOException)
+            {
+                // Client disconnected, remove from list
+                RemoveDisconnectedClient(client);
+            }
+        }
+    }
+
+
+    /// <summary>
+    /// Removes a disconnected client from the connected clients list.
+    /// </summary>
+    private static void RemoveDisconnectedClient((NetworkStream Stream, TcpClient Client) client)
+    {
+        ConnectedClients.Remove(client);
+    }
     /// <summary>
     /// Starts an external .exe from the config.
     /// </summary>
@@ -338,6 +385,10 @@ class Program
         using (client)
         using (NetworkStream stream = client.GetStream())
         {
+            // Register client for status broadcasts
+            ConnectedClients.Add((stream, client));
+
+
             stream.ReadTimeout = 10000;
             stream.WriteTimeout = 10000;
 
@@ -459,6 +510,10 @@ class Program
                         await stream.FlushAsync();
                     }
                     catch (IOException) { /* Client disconnected */ }
+                    // Remove client from connected list on disconnect
+                    RemoveDisconnectedClient((stream, client));
+
+
 
                     try
                     {
@@ -481,6 +536,7 @@ class Program
                     await stream.WriteAsync(helpBytes, 0, helpBytes.Length);
                     await stream.FlushAsync();
                 }
+
                 else if (commandText == "startserver")
                 {
                     byte[] responseBytes = Encoding.UTF8.GetBytes("Command: startserver\r\nServer is starting...\r\n");
@@ -488,6 +544,15 @@ class Program
                     await stream.FlushAsync();
 
                     StartServer(config);
+                    
+                    // Send confirmation to all clients after command executes
+                    byte[] confirmBytes = Encoding.UTF8.GetBytes("Command executed on server side.\r\n");
+                    try
+                    {
+                        await stream.WriteAsync(confirmBytes, 0, confirmBytes.Length);
+                        await stream.FlushAsync();
+                    }
+                    catch (IOException) { /* Client disconnected */ }
                 }
                 else if (commandText == "stopserver")
                 {
@@ -496,6 +561,15 @@ class Program
                     await stream.FlushAsync();
 
                     StopServer(config);
+                    
+                    // Send confirmation to all clients after command executes
+                    byte[] confirmBytes = Encoding.UTF8.GetBytes("Command executed on server side.\r\n");
+                    try
+                    {
+                        await stream.WriteAsync(confirmBytes, 0, confirmBytes.Length);
+                        await stream.FlushAsync();
+                    }
+                    catch (IOException) { /* Client disconnected */ }
                 }
                 else if (commandText == "status")
                 {
